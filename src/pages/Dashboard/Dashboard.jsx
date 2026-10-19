@@ -1,11 +1,14 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useProgress } from '../../context/ProgressContext.jsx';
 import { MODULES, SKILL_LABELS, ACHIEVEMENTS } from '../../data/modules.js';
 import { getNextModule } from '../../utils/adaptive.js';
 import { getProgressToNextLevel } from '../../utils/gamification.js';
+import { getWeeklyLeaderboard } from '../../services/quantumApi.js';
 import AITutor from '../../components/ai/AITutor.jsx';
 import AchievementNotification from '../../components/gamification/AchievementNotification.jsx';
+import { getWorldMap } from '../../utils/worldMap.js';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -15,7 +18,10 @@ export default function Dashboard() {
   const nextMod = progress && skills ? getNextModule(progress, skills, user?.goal) : null;
   const completedCount = progress?.completedModules?.length || 0;
   const dailyQuests = gamification?.daily_quests || [];
+  const weeklyQuests = gamification?.weekly_quests || [];
+  const rewardHistory = gamification?.reward_history || [];
   const loadingQuests = false;
+  const [weeklyBoard, setWeeklyBoard] = useState(null);
 
   // Gamification state with safe defaults
   const totalXP = gamification?.total_xp ?? user?.total_xp ?? 0;
@@ -26,8 +32,20 @@ export default function Dashboard() {
   const strongSkills = skills ? Object.entries(skills).filter(([, v]) => v >= 60).sort((a, b) => b[1] - a[1]).slice(0, 3) : [];
 
   const unlockedAchievements = progress ? ACHIEVEMENTS.filter(a => a.condition(progress)) : [];
+  const verifiedAchievements = gamification?.achievements || [];
 
   const recentModules = MODULES.filter(m => progress?.completedModules?.includes(m.id)).slice(-3);
+  const nextRegion = getWorldMap(progress).find(region => region.state === 'available');
+
+  useEffect(() => {
+    let active = true;
+    getWeeklyLeaderboard().then(response => {
+      if (active) setWeeklyBoard(response?.leaderboard || null);
+    }).catch(() => {
+      if (active) setWeeklyBoard(null);
+    });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="page fade-in">
@@ -41,7 +59,7 @@ export default function Dashboard() {
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Level</div>
             <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent)' }}>{level}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{totalXP} XP</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{gamification?.level?.name || 'Quantum Initiate'} · {totalXP} verified XP</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Streak</div>
@@ -75,8 +93,8 @@ export default function Dashboard() {
           <div className="stat-label">Total XP</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{unlockedAchievements.length}</div>
-          <div className="stat-label">Achievements</div>
+          <div className="stat-value">{verifiedAchievements.length}</div>
+          <div className="stat-label">Verified Badges</div>
         </div>
       </div>
 
@@ -108,17 +126,21 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Daily Quests */}
+        {/* Quests (Daily & Weekly) */}
         <div className="card">
-          <div style={{ fontSize: '0.75rem', color: 'var(--accent-light)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>📋 Daily Quests</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--accent-light)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>📋 Active Quests</div>
+            <span className="tag tag-info" style={{ fontSize: '0.7rem' }}>Daily & Weekly</span>
+          </div>
           {loadingQuests ? (
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Loading quests...</div>
-          ) : dailyQuests.length > 0 ? (
+          ) : (dailyQuests.length > 0 || weeklyQuests.length > 0) ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {dailyQuests.map(quest => (
+              {[...dailyQuests, ...weeklyQuests].map(quest => (
                 <button key={quest.id} type="button" onClick={() => quest.route && nav(quest.route)} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 8, color: 'inherit', textAlign: 'left', cursor: quest.route ? 'pointer' : 'default' }}>
                   <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{quest.quest_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{quest.title}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{quest.description}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{quest.current_count} / {quest.target_count}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -138,6 +160,58 @@ export default function Dashboard() {
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No quests available</div>
           )}
         </div>
+      </div>
+
+      {nextRegion && (
+        <section className="card" style={{ marginBottom: 28, borderLeft: '4px solid var(--accent)' }} aria-labelledby="world-map-preview-heading">
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '.75rem', color: 'var(--accent)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Quantum World Map</div>
+              <h2 id="world-map-preview-heading" style={{ fontSize: '1.2rem', margin: '5px 0' }}>{nextRegion.icon} {nextRegion.name}</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '.85rem' }}>{nextRegion.description}</p>
+            </div>
+            <button className="btn btn-secondary" onClick={() => nav('/world-map')}>Open map →</button>
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-2" style={{ marginBottom: 28 }}>
+        <section className="card" aria-labelledby="weekly-learning-board-heading">
+          <h2 id="weekly-learning-board-heading" style={{ fontSize: '1rem', margin: 0 }}>Weekly learning leaderboard</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '.76rem', margin: '4px 0 10px' }}>Ranks verified learning XP earned this UTC week. Contest ratings are separate.</p>
+          {weeklyBoard?.entries?.length ? (
+            <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+              {weeklyBoard.entries.slice(0, 5).map(entry => (
+                <li key={entry.user_id} style={{ display: 'grid', gridTemplateColumns: '32px 1fr auto', gap: 10, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-glass)' }}>
+                  <strong>#{entry.rank}</strong><span>{entry.display_name}{entry.is_viewer ? ' (you)' : ''}</span><span style={{ color: 'var(--accent)', fontWeight: 700 }}>{entry.weekly_xp} XP</span>
+                </li>
+              ))}
+            </ol>
+          ) : <p style={{ color: 'var(--text-muted)', fontSize: '.84rem', margin: 0 }}>The verified weekly leaderboard is unavailable until its database migration is applied and the service is configured.</p>}
+        </section>
+
+        <section className="card" aria-labelledby="reward-history-heading">
+          <h2 id="reward-history-heading" style={{ fontSize: '1rem', margin: 0 }}>⚡ Verified Reward Feed</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '.76rem', margin: '4px 0 10px' }}>Server-confirmed learning accomplishments and XP transactions.</p>
+          {rewardHistory.length > 0 ? (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+              {rewardHistory.slice(0, 5).map((r, i) => (
+                <li key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-glass)', fontSize: '0.82rem' }}>
+                  <span>
+                    <strong style={{ textTransform: 'capitalize' }}>{r.event_type.replace('_', ' ')}</strong>: {r.event_key}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : 'Recent'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p style={{ color: 'var(--text-muted)', fontSize: '.84rem', margin: 0 }}>
+              No verified rewards recorded yet. Complete a circuit mission or contest challenge to earn server-verified rewards.
+            </p>
+          )}
+        </section>
       </div>
 
       <div className="grid grid-2" style={{ marginBottom: 28 }}>
@@ -189,9 +263,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Achievements */}
+        {/* Course milestones */}
         <div className="card">
-          <div style={{ fontWeight: 700, marginBottom: 12, fontSize: '0.9rem' }}>🏆 Recent Achievements</div>
+          <div style={{ fontWeight: 700, marginBottom: 4, fontSize: '0.9rem' }}>📚 Course Milestones</div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '.75rem', marginBottom: 12 }}>Derived from your current curriculum progress. Verified mission badges appear on the Achievements page.</p>
           <div className="grid grid-2">
             {unlockedAchievements.slice(0, 4).map(a => (
               <div key={a.id} className="achievement-badge unlocked">

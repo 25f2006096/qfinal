@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useProgress } from '../../context/ProgressContext.jsx';
 import { storage } from '../../utils/storage.js';
 import { simulateCircuit, getProbabilities, measure, blochCoords, getQubitProbabilities, getReducedQubitState } from '../../utils/quantum.js';
-import { submitCircuitMission } from '../../services/quantumApi.js';
+import { getChallengeProgress, saveChallengeProgress, submitCircuitMission } from '../../services/quantumApi.js';
 import AITutor from '../../components/ai/AITutor.jsx';
 import BlochSphere from '../../components/BlochSphere.jsx';
 import CircuitExplainer from '../../components/CircuitExplainer.jsx';
@@ -13,6 +13,59 @@ const GATE_COLORS = { H:'#7c4dff', X:'#ff5252', Y:'#ff9800', Z:'#2196f3', S:'#00
 const BASIC_GATES = ['H','X','Y','Z','S','T','CNOT','SWAP','M'];
 const ROTATION_GATES = ['Rx','Ry','Rz'];
 const ALL_GATES = [...BASIC_GATES, ...ROTATION_GATES];
+
+const REPAIR_SCENARIOS = {
+  'superposition-reset': {
+    missionId: 'build-superposition',
+    title: 'Repair: restore superposition',
+    instruction: 'This circuit incorrectly flips q0. Remove the X gate, then create the required equal superposition with exactly one H gate on q0.',
+    qubits: 1,
+    operations: [{ gate: 'X', target: 0, col: 0 }],
+  },
+  'broken-bell-pair': {
+    missionId: 'build-bell-state',
+    title: 'Repair: fix broken Bell state',
+    instruction: 'This circuit has a stray Z gate before the CNOT. Remove the Z gate so that H(q0) is followed directly by CNOT(q0, q1).',
+    qubits: 2,
+    operations: [
+      { gate: 'H', target: 0, col: 0 },
+      { gate: 'Z', target: 0, col: 1 },
+      { gate: 'CNOT', control: 0, target: 1, col: 2 },
+    ],
+  },
+  'ghz-repair': {
+    missionId: 'build-ghz-state',
+    title: 'Repair: complete 3-qubit GHZ state',
+    instruction: 'Complete the GHZ circuit by adding CNOT(q0, q2) after CNOT(q0, q1).',
+    qubits: 3,
+    operations: [
+      { gate: 'H', target: 0, col: 0 },
+      { gate: 'CNOT', control: 0, target: 1, col: 1 },
+    ],
+  },
+};
+
+const BOSS_SCENARIOS = {
+  'entanglement-guardian': {
+    missionId: 'build-bell-state',
+    title: 'Boss Battle: The Entanglement Guardian',
+    stages: [
+      'Prepare q0 in superposition with H.',
+      'Entangle q0 and q1 with CNOT.',
+      'Simulate and submit the verified Bell-state circuit.',
+    ],
+  },
+  'ghz-overlord': {
+    missionId: 'build-ghz-state',
+    title: 'Boss Battle: The Tri-Qubit Overlord',
+    stages: [
+      'Prepare 3 qubits and initialize q0 in superposition with H.',
+      'Entangle q0 with q1 using CNOT(q0, q1).',
+      'Cascade entanglement to q2 with CNOT(q0, q2).',
+      'Simulate and submit the verified 3-qubit GHZ state.',
+    ],
+  },
+};
 
 function opsToQasm(ops, nQubits) {
   let qasm = `OPENQASM 2.0;\ninclude "qelib1.inc";\n\nqreg q[${nQubits}];\ncreg c[${nQubits}];\n\n`;
@@ -91,8 +144,16 @@ export default function CircuitBuilder({ embedded = false, initialQubits = 2, ga
   const [missionError, setMissionError] = useState('');
   const [missionSubmitting, setMissionSubmitting] = useState(false);
   const [missionToast, setMissionToast] = useState(null);
+  const repairLoaded = useRef(false);
+  const [bossStage, setBossStage] = useState(0);
+  const [bossFeedback, setBossFeedback] = useState('');
+  const [challengeSaveState, setChallengeSaveState] = useState('');
 
   const queryMissionId = !embedded ? new URLSearchParams(window.location.search).get('mission') : null;
+  const repairId = !embedded ? new URLSearchParams(window.location.search).get('repair') : null;
+  const repairScenario = repairId ? REPAIR_SCENARIOS[repairId] : null;
+  const bossId = !embedded ? new URLSearchParams(window.location.search).get('boss') : null;
+  const bossScenario = bossId ? BOSS_SCENARIOS[bossId] : null;
   const missions = gamification?.missions || [];
   const activeMission = missions.find(mission => mission.id === queryMissionId)
     || (queryMissionId ? null : missions.find(mission => !['completed', 'mastered'].includes(mission.status)));
@@ -113,6 +174,36 @@ export default function CircuitBuilder({ embedded = false, initialQubits = 2, ga
       } catch (e) { console.error('Failed to parse shared circuit', e); }
     }
   }, [user, embedded]);
+
+  useEffect(() => {
+    if (embedded || repairLoaded.current || !repairScenario) return;
+    repairLoaded.current = true;
+    setNQubits(repairScenario.qubits);
+    setOps(repairScenario.operations);
+    setHistory([repairScenario.operations]);
+    setHistIdx(0);
+    setResults(null);
+  }, [embedded, repairScenario]);
+
+  useEffect(() => {
+    let active = true;
+    if (embedded || !bossId || !user) return undefined;
+    getChallengeProgress(bossId).then((response) => {
+      const savedProgress = response?.progress;
+      if (!active || !savedProgress) return;
+      if (Number.isInteger(savedProgress.stage)) setBossStage(savedProgress.stage);
+      if (savedProgress.circuit_data?.qubits && Array.isArray(savedProgress.circuit_data?.operations)) {
+        setNQubits(savedProgress.circuit_data.qubits);
+        setOps(savedProgress.circuit_data.operations);
+        setHistory([savedProgress.circuit_data.operations]);
+        setHistIdx(0);
+      }
+      setChallengeSaveState('Restored your saved checkpoint.');
+    }).catch(() => {
+      if (active) setChallengeSaveState('Checkpoint saving becomes available after migration 17 is applied.');
+    });
+    return () => { active = false; };
+  }, [embedded, bossId, user?.id]);
 
   useEffect(() => {
     if (embedded) setNQubits(initialQubits);
@@ -222,6 +313,62 @@ export default function CircuitBuilder({ embedded = false, initialQubits = 2, ga
     }
   };
 
+  const validateBossStage = () => {
+    if (!bossScenario) return;
+    const gates = ops.filter(operation => operation.gate !== 'M').sort((a, b) => a.col - b.col);
+    if (bossScenario.missionId === 'build-bell-state') {
+      const hasSuperposition = gates.length === 1 && gates[0]?.gate === 'H' && gates[0]?.target === 0;
+      const hasBellState = gates.length === 2 && gates[0]?.gate === 'H' && gates[0]?.target === 0
+        && gates[1]?.gate === 'CNOT' && gates[1]?.control === 0 && gates[1]?.target === 1;
+      if (bossStage === 0) {
+        if (!hasSuperposition) return setBossFeedback('Stage 1 needs exactly H on q0. Remove unrelated gates and try again.');
+        setBossStage(1); return setBossFeedback('Stage 1 verified locally. Add CNOT with q0 as control and q1 as target.');
+      }
+      if (bossStage === 1) {
+        if (!hasBellState) return setBossFeedback('Stage 2 needs H(q0) followed by CNOT(q0, q1).');
+        setBossStage(2); return setBossFeedback('Stage 2 verified locally. Run the simulator, then submit the existing verified mission.');
+      }
+      if (!results || results.error) return setBossFeedback('Run a successful simulation before completing the final stage.');
+      setBossFeedback('Final stage is ready. Use Verify & Claim XP for server validation.');
+    } else if (bossScenario.missionId === 'build-ghz-state') {
+      const stage0Ok = nQubits >= 3 && gates.length === 1 && gates[0]?.gate === 'H' && gates[0]?.target === 0;
+      const stage1Ok = nQubits >= 3 && gates.length === 2 && gates[0]?.gate === 'H' && gates[0]?.target === 0
+        && gates[1]?.gate === 'CNOT' && gates[1]?.control === 0 && gates[1]?.target === 1;
+      const stage2Ok = nQubits >= 3 && gates.length === 3 && gates[0]?.gate === 'H' && gates[0]?.target === 0
+        && gates[1]?.gate === 'CNOT' && gates[1]?.control === 0 && gates[1]?.target === 1
+        && gates[2]?.gate === 'CNOT' && gates[2]?.control === 0 && gates[2]?.target === 2;
+      if (bossStage === 0) {
+        if (!stage0Ok) return setBossFeedback('Stage 1 requires at least 3 qubits and exactly H on q0.');
+        setBossStage(1); return setBossFeedback('Stage 1 verified. Now add CNOT from q0 to q1.');
+      }
+      if (bossStage === 1) {
+        if (!stage1Ok) return setBossFeedback('Stage 2 requires H(q0) and CNOT(q0, q1).');
+        setBossStage(2); return setBossFeedback('Stage 2 verified. Now add CNOT from q0 to q2.');
+      }
+      if (bossStage === 2) {
+        if (!stage2Ok) return setBossFeedback('Stage 3 requires H(q0), CNOT(q0, q1), and CNOT(q0, q2).');
+        setBossStage(3); return setBossFeedback('Stage 3 verified! Run a simulation, then submit the circuit.');
+      }
+      if (!results || results.error) return setBossFeedback('Run a successful simulation before completing the final stage.');
+      setBossFeedback('Final stage ready! Submit for verified server validation.');
+    }
+  };
+
+  const saveBossCheckpoint = async () => {
+    if (!bossId || !user) return;
+    setChallengeSaveState('Saving checkpoint…');
+    try {
+      await saveChallengeProgress(bossId, {
+        stage: bossStage,
+        circuit_data: { qubits: nQubits, operations: ops },
+        completed: missionStatus === 'completed',
+      });
+      setChallengeSaveState('Checkpoint saved securely to your learner record.');
+    } catch (error) {
+      setChallengeSaveState(error.message || 'Checkpoint could not be saved. Your verified reward state is unchanged.');
+    }
+  };
+
   const saveCircuit = async () => {
     if (!user || !saveName.trim()) return;
     await storage.insertCircuit(user.id, saveName, nQubits, ops);
@@ -255,6 +402,22 @@ export default function CircuitBuilder({ embedded = false, initialQubits = 2, ga
             <div className="mission-kicker">🎯 Verified circuit mission</div>
             <h2 id="circuit-mission-heading">{activeMission.title}</h2>
             <p>{activeMission.description}</p>
+            {repairScenario && repairScenario.missionId === activeMission.id && (
+              <div className="mission-feedback" role="status" style={{ marginTop: 10 }}>
+                <strong>{repairScenario.title}:</strong> {repairScenario.instruction}
+              </div>
+            )}
+            {bossScenario && bossScenario.missionId === activeMission.id && (
+              <div className="mission-feedback" role="status" style={{ marginTop: 10 }}>
+                <strong>{bossScenario.title}</strong> · Stage {bossStage + 1} of {bossScenario.stages.length}: {bossScenario.stages[bossStage]}
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={validateBossStage}>Check stage</button>
+                  <button className="btn btn-secondary btn-sm" onClick={saveBossCheckpoint}>Save checkpoint</button>
+                </div>
+                {bossFeedback && <div style={{ marginTop: 7 }}>{bossFeedback}</div>}
+                <div style={{ color: 'var(--text-muted)', fontSize: '.72rem', marginTop: 8 }}>{challengeSaveState || 'Checkpoint state is saved only after migration 17 is applied; verified mission rewards remain server-owned.'}</div>
+              </div>
+            )}
             <div className="mission-meta">
               <span className="tag tag-accent">+{activeMission.xp_reward} XP</span>
               <span className="tag tag-info">{activeMission.estimated_minutes} min</span>
@@ -269,6 +432,22 @@ export default function CircuitBuilder({ embedded = false, initialQubits = 2, ga
           </div>
           {missionError && <div className="mission-feedback error" role="alert">{missionError}</div>}
         </section>
+      )}
+
+      {!embedded && !repairScenario && queryMissionId === 'build-superposition' && (
+        <button className="text-action" style={{ marginBottom: 12 }} onClick={() => window.location.assign('/circuit?mission=build-superposition&repair=superposition-reset')}>
+          Try the guided Circuit Repair Mission →
+        </button>
+      )}
+      {!embedded && !bossScenario && queryMissionId === 'build-bell-state' && (
+        <button className="text-action" style={{ marginBottom: 12 }} onClick={() => window.location.assign('/circuit?mission=build-bell-state&boss=entanglement-guardian')}>
+          Challenge the Entanglement Guardian →
+        </button>
+      )}
+      {!embedded && !bossScenario && queryMissionId === 'build-ghz-state' && (
+        <button className="text-action" style={{ marginBottom: 12 }} onClick={() => window.location.assign('/circuit?mission=build-ghz-state&boss=ghz-overlord')}>
+          Challenge the Tri-Qubit Overlord →
+        </button>
       )}
 
       {/* Gate Palette */}

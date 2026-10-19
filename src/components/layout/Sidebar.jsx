@@ -8,12 +8,15 @@ const NAV = [
   { to: '/contests', icon: '🏁', label: 'Contests' },
   { to: '/dashboard', icon: '🏠', label: 'Dashboard' },
   { to: '/roadmap', icon: '🗺️', label: 'My Roadmap' },
+  { to: '/world-map', icon: '🧭', label: 'World Map' },
   { to: '/modules', icon: '📚', label: 'Modules' },
   { to: '/circuit', icon: '⚡', label: 'Circuit Builder' },
   { to: '/race', icon: '⚔', label: 'Quantum Race' },
   { to: '/lab', icon: '🔬', label: 'Quantum Lab' },
   { to: '/skillmap', icon: '📊', label: 'Skill Map' },
   { to: '/achievements', icon: '🏆', label: 'Achievements' },
+  { to: '/notifications', icon: '🔔', label: 'Notifications' },
+  { to: '/profile', icon: '👤', label: 'My Profile' },
 ];
 
 export default function Sidebar() {
@@ -80,7 +83,7 @@ export default function Sidebar() {
             )}
             <div className="sidebar-avatar-status" />
           </div>
-          <div className="sidebar-user-info">
+          <div className="sidebar-user-info" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }} title="View Profile">
             <div className="sidebar-user-name">{user.name}</div>
             <div className="sidebar-user-role">{user.isAdmin ? '⚙️ Admin' : user.isInstructor ? '🎓 Instructor' : '🎓 Student'}</div>
           </div>

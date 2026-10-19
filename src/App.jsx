@@ -19,6 +19,9 @@ const AdminPanel = lazy(() => import('./pages/Admin/AdminPanel.jsx'));
 const QuantumRace = lazy(() => import('./pages/QuantumRace/QuantumRace.jsx'));
 const InstructorDashboard = lazy(() => import('./pages/Instructor/InstructorDashboard.jsx'));
 const Contests = lazy(() => import('./pages/Contests/Contests.jsx'));
+const WorldMap = lazy(() => import('./pages/WorldMap/WorldMap.jsx'));
+const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
+const Notifications = lazy(() => import('./pages/Notifications/Notifications.jsx'));
 
 function ProtectedRoute({ children, requireAdmin = false }) {
   const { user, loading } = useAuth();
@@ -108,12 +111,15 @@ function MainLayout() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/roadmap" element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
+          <Route path="/world-map" element={<ProtectedRoute><WorldMap /></ProtectedRoute>} />
           <Route path="/modules" element={<ProtectedRoute><ModuleList /></ProtectedRoute>} />
           <Route path="/modules/:id" element={<ProtectedRoute><ModuleDetail /></ProtectedRoute>} />
           <Route path="/circuit" element={<ProtectedRoute><CircuitBuilder /></ProtectedRoute>} />
           <Route path="/lab" element={<ProtectedRoute><QuantumLab /></ProtectedRoute>} />
           <Route path="/skillmap" element={<ProtectedRoute><SkillMap /></ProtectedRoute>} />
           <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/race" element={<ProtectedRoute><QuantumRace /></ProtectedRoute>} />
           <Route path="/contests" element={<ProtectedRoute><Contests /></ProtectedRoute>} />
           <Route path="/contests/:contestId" element={<ProtectedRoute><Contests /></ProtectedRoute>} />
