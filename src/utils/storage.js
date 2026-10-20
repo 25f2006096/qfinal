@@ -2,6 +2,48 @@ import { supabase } from '../lib/supabaseClient.js';
 
 export const storage = {
   // ----------------------------------------------------
+  // SCHEDULED LEARNING EVENTS (migration 18, read-only for learners)
+  // ----------------------------------------------------
+  async getLearningEvents() {
+    if (!supabase) return null;
+    const { data, error } = await supabase.from('learning_events').select('*').order('start_time', { ascending: true });
+    if (error) throw new Error(`Unable to load scheduled events: ${error.message}`);
+    return (data || []).map(event => ({
+      id: event.id, title: event.title, category: event.category, description: event.description,
+      startTime: event.start_time, endTime: event.end_time, route: event.route || '',
+      xpReward: Number(event.xp_reward || 0), difficulty: event.difficulty, eligibility: event.eligibility,
+    }));
+  },
+
+  // ----------------------------------------------------
+  // RESEARCH NOTEBOOK (migration 18, owner-scoped by RLS)
+  // ----------------------------------------------------
+  async getResearchNotes(userId) {
+    if (!userId || !supabase) return null;
+    const { data, error } = await supabase.from('research_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
+    if (error) throw new Error(`Unable to load research notes: ${error.message}`);
+    return (data || []).map(note => ({ id: note.id, title: note.title, category: note.category, hypothesis: note.hypothesis, mathFormulation: note.math_formulation, observations: note.observations, circuitSnippet: note.circuit_snippet, tags: note.tags || [], updatedAt: note.updated_at }));
+  },
+
+  async saveResearchNote(userId, note) {
+    if (!userId || !supabase) return null;
+    const hasPersistedId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(note.id || '');
+    const record = { user_id: userId, title: (note.title || 'Untitled Quantum Investigation').trim(), category: note.category || 'General', hypothesis: note.hypothesis || '', math_formulation: note.mathFormulation || '', observations: note.observations || '', circuit_snippet: note.circuitSnippet || '', tags: Array.isArray(note.tags) ? note.tags : [], updated_at: new Date().toISOString() };
+    const { data, error } = hasPersistedId
+      ? await supabase.from('research_notes').update(record).eq('id', note.id).select().single()
+      : await supabase.from('research_notes').insert(record).select().single();
+    if (error) throw new Error(`Unable to save research note: ${error.message}`);
+    return { id: data.id, title: data.title, category: data.category, hypothesis: data.hypothesis, mathFormulation: data.math_formulation, observations: data.observations, circuitSnippet: data.circuit_snippet, tags: data.tags || [], updatedAt: data.updated_at };
+  },
+
+  async deleteResearchNote(userId, noteId) {
+    if (!userId || !supabase) return false;
+    const { error } = await supabase.from('research_notes').delete().eq('id', noteId);
+    if (error) throw new Error(`Unable to delete research note: ${error.message}`);
+    return true;
+  },
+
+  // ----------------------------------------------------
   // PROGRESS & SKILLS
   // ----------------------------------------------------
   async getProgress(userId) {

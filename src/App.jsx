@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ProgressProvider } from './context/ProgressContext.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
+import GameHUD from './components/layout/GameHUD.jsx';
 
 const LoginPage = lazy(() => import('./pages/Auth/AuthPages.jsx').then(module => ({ default: module.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/Auth/AuthPages.jsx').then(module => ({ default: module.RegisterPage })));
@@ -22,6 +23,8 @@ const Contests = lazy(() => import('./pages/Contests/Contests.jsx'));
 const WorldMap = lazy(() => import('./pages/WorldMap/WorldMap.jsx'));
 const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications/Notifications.jsx'));
+const ResearchNotebook = lazy(() => import('./pages/Notebook/ResearchNotebook.jsx'));
+const EventCalendar = lazy(() => import('./pages/Events/EventCalendar.jsx'));
 
 function ProtectedRoute({ children, requireAdmin = false }) {
   const { user, loading } = useAuth();
@@ -107,6 +110,7 @@ function MainLayout() {
     <div className="app-container">
       <Sidebar />
       <main className="main-content">
+        <GameHUD />
         <Suspense fallback={<LoadingScreen />}><Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -120,6 +124,8 @@ function MainLayout() {
           <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+          <Route path="/notebook" element={<ProtectedRoute><ResearchNotebook /></ProtectedRoute>} />
+          <Route path="/events" element={<ProtectedRoute><EventCalendar /></ProtectedRoute>} />
           <Route path="/race" element={<ProtectedRoute><QuantumRace /></ProtectedRoute>} />
           <Route path="/contests" element={<ProtectedRoute><Contests /></ProtectedRoute>} />
           <Route path="/contests/:contestId" element={<ProtectedRoute><Contests /></ProtectedRoute>} />

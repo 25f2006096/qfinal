@@ -3,20 +3,23 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useProgress } from '../../context/ProgressContext.jsx';
 import { storage } from '../../utils/storage.js';
+import { COSMETIC_FRAMES, getEquippedCosmetics } from '../../utils/cosmetics.js';
 
 const NAV = [
-  { to: '/contests', icon: '🏁', label: 'Contests' },
-  { to: '/dashboard', icon: '🏠', label: 'Dashboard' },
-  { to: '/roadmap', icon: '🗺️', label: 'My Roadmap' },
-  { to: '/world-map', icon: '🧭', label: 'World Map' },
-  { to: '/modules', icon: '📚', label: 'Modules' },
-  { to: '/circuit', icon: '⚡', label: 'Circuit Builder' },
-  { to: '/race', icon: '⚔', label: 'Quantum Race' },
+  { to: '/dashboard', icon: '🏠', label: 'Academy Hub' },
+  { to: '/world-map', icon: '🧭', label: 'Quantum Frontier' },
+  { to: '/modules', icon: '📚', label: 'Training Chambers' },
+  { to: '/circuit', icon: '⚡', label: 'Circuit Forge' },
   { to: '/lab', icon: '🔬', label: 'Quantum Lab' },
-  { to: '/skillmap', icon: '📊', label: 'Skill Map' },
-  { to: '/achievements', icon: '🏆', label: 'Achievements' },
-  { to: '/notifications', icon: '🔔', label: 'Notifications' },
-  { to: '/profile', icon: '👤', label: 'My Profile' },
+  { to: '/roadmap', icon: '🗺️', label: 'My Roadmap' },
+  { to: '/notebook', icon: '📓', label: 'Research Notebook' },
+  { to: '/events', icon: '📅', label: 'Event Calendar' },
+  { to: '/contests', icon: '🏁', label: 'Competition Arena' },
+  { to: '/skillmap', icon: '📊', label: 'Skill Observatory' },
+  { to: '/achievements', icon: '🏆', label: 'Artifacts & Badges' },
+  { to: '/race', icon: '⚔', label: 'Quantum Race' },
+  { to: '/notifications', icon: '🔔', label: 'Comms & Alerts' },
+  { to: '/profile', icon: '👤', label: 'Explorer Profile' },
 ];
 
 export default function Sidebar() {
@@ -30,6 +33,9 @@ export default function Sidebar() {
   const navigation = user?.isInstructor ? instructorNav : NAV;
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+
+  const equipped = getEquippedCosmetics(user?.id);
+  const activeFrame = COSMETIC_FRAMES.find(f => f.id === equipped.frameId) || COSMETIC_FRAMES[0];
 
   useEffect(() => {
     setAvatarError(false);
@@ -72,7 +78,7 @@ export default function Sidebar() {
       {/* User Profile Card */}
       {user && (
         <div className="sidebar-profile">
-          <div className="sidebar-avatar" onClick={() => document.getElementById('avatar-upload').click()} style={{ cursor: 'pointer', position: 'relative' }} title="Change Avatar">
+          <div className={`sidebar-avatar avatar-frame ${activeFrame.className}`} onClick={() => document.getElementById('avatar-upload').click()} style={{ cursor: 'pointer', position: 'relative' }} title="Change Avatar">
             <input id="avatar-upload" type="file" accept="image/png, image/jpeg, image/webp" style={{ display: 'none' }} onChange={handleAvatarChange} disabled={uploading} />
             {uploading ? (
               <div className="sidebar-avatar-fallback" style={{ fontSize: '0.8rem' }}>...</div>
