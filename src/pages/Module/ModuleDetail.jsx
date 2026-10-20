@@ -491,13 +491,26 @@ export default function ModuleDetail() {
 
   return (
     <div className="page fade-in">
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => nav('/modules')}>← Back</button>
-        <span className="tag tag-accent">{mod.category}</span>
-        {isCompleted && <span className="tag tag-success">✅ Completed</span>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => nav('/modules')}>← Training Chambers</button>
+          <span className="tag tag-accent">{mod.category}</span>
+          {isCompleted && <span className="tag tag-success">✅ Mission Mastered</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => nav('/circuit')} title="Launch Circuit Forge">
+            ⚡ Circuit Forge
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => nav('/notebook')} title="Log research notes">
+            📓 Notebook
+          </button>
+        </div>
       </div>
 
-      <h1 className="page-title">Module {mod.id}: {mod.title}</h1>
+      <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, marginTop: 10 }}>
+        Explorer Training Mission {mod.id}
+      </div>
+      <h1 className="page-title">{mod.title}</h1>
       <p className="page-subtitle">{mod.desc}</p>
 
       <div className="tabs" style={{ marginTop: 24 }}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useProgress } from '../../context/ProgressContext.jsx';
@@ -9,6 +9,8 @@ import { getWeeklyLeaderboard } from '../../services/quantumApi.js';
 import AITutor from '../../components/ai/AITutor.jsx';
 import AchievementNotification from '../../components/gamification/AchievementNotification.jsx';
 import { getWorldMap } from '../../utils/worldMap.js';
+import { storage } from '../../utils/storage.js';
+import { COSMETIC_FRAMES, COSMETIC_TITLES, getEquippedCosmetics } from '../../utils/cosmetics.js';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -36,6 +38,11 @@ export default function Dashboard() {
 
   const recentModules = MODULES.filter(m => progress?.completedModules?.includes(m.id)).slice(-3);
   const nextRegion = getWorldMap(progress).find(region => region.state === 'available');
+  const [activityDays, setActivityDays] = useState({});
+
+  const equipped = getEquippedCosmetics(user?.id);
+  const activeFrame = COSMETIC_FRAMES.find(f => f.id === equipped.frameId) || COSMETIC_FRAMES[0];
+  const activeTitle = COSMETIC_TITLES.find(t => t.id === equipped.titleId)?.title || gamification?.level?.name || 'Quantum Initiate';
 
   useEffect(() => {
     let active = true;
@@ -44,22 +51,68 @@ export default function Dashboard() {
     }).catch(() => {
       if (active) setWeeklyBoard(null);
     });
+    if (user?.id) {
+      storage.getActivityLog(user.id).then(log => {
+        if (active) setActivityDays(log || {});
+      }).catch(() => {});
+    }
     return () => { active = false; };
-  }, []);
+  }, [user?.id]);
+
+  const calendarDays = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayDate = now.getDate();
+
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const monthStr = String(month + 1).padStart(2, '0');
+      const dayStr = String(dayNum).padStart(2, '0');
+      const dateKey = `${year}-${monthStr}-${dayStr}`;
+      const interactions = activityDays[dateKey] || 0;
+      return {
+        dayNum,
+        dateKey,
+        isActive: interactions > 0,
+        isToday: dayNum === todayDate,
+        interactions,
+      };
+    });
+  }, [activityDays]);
 
   return (
     <div className="page fade-in">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: '2rem', marginBottom: 4 }}>Welcome back, {user?.name?.split(' ')[0]} 👋</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Goal: <span style={{ color: 'var(--accent-light)' }}>{user?.goal || 'Learning quantum computing'}</span></p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div className={`avatar-frame ${activeFrame.className}`} style={{ width: 56, height: 56, borderRadius: '50%', cursor: 'pointer' }} onClick={() => nav('/profile')} title="View Explorer Profile">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--gradient-1)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                {user?.name?.[0] || 'Q'}
+              </div>
+            )}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.8rem', margin: 0 }}>Welcome back, {user?.name?.split(' ')[0]} 👋</h1>
+              <span className="tag tag-accent" style={{ fontSize: '0.72rem', fontWeight: 700 }}>
+                ⚜️ {activeTitle}
+              </span>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0', fontSize: '0.88rem' }}>
+              Goal: <span style={{ color: 'var(--accent)' }}>{user?.goal || 'Learning quantum computing'}</span> · Level {level} Explorer
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Level</div>
             <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent)' }}>{level}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{gamification?.level?.name || 'Quantum Initiate'} · {totalXP} verified XP</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{activeTitle} · {totalXP} verified XP</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Streak</div>
@@ -253,13 +306,18 @@ export default function Dashboard() {
           )) : <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No major weak areas yet — great job!</div>}
         </div>
 
-        {/* Quick Actions */}
+        {/* Academy Hub Destinations */}
         <div className="card">
-          <div style={{ fontWeight: 700, marginBottom: 12, fontSize: '0.9rem' }}>🚀 Quick Actions</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }} onClick={() => nav('/roadmap')}>🗺️ View My Roadmap</button>
-            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }} onClick={() => nav('/circuit')}>⚡ Circuit Builder</button>
-            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start' }} onClick={() => nav('/lab')}>🔬 Quantum Lab</button>
+          <div style={{ fontWeight: 700, marginBottom: 12, fontSize: '0.9rem' }}>🚀 Academy Destinations</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/circuit')}>⚡ Circuit Forge</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/lab')}>🔬 Quantum Lab</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/circuit?repair=superposition-reset')}>🧩 Puzzle Vault</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/circuit?boss=entanglement-guardian')}>👑 Boss Arena</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/notebook')}>📓 Notebook</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/events')}>📅 Event Calendar</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/world-map')}>🧭 World Map</button>
+            <button className="btn btn-secondary btn-sm" style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }} onClick={() => nav('/roadmap')}>🗺️ Full Roadmap</button>
           </div>
         </div>
 
@@ -275,6 +333,37 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Monthly Streak Calendar Card */}
+      <div className="streak-calendar-card" style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <h2 style={{ fontSize: '1rem', margin: 0 }}>🔥 Monthly Learning Streak Calendar</h2>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: '0.8rem' }}>
+            <span style={{ color: '#b45309', fontWeight: 700 }}>Current Streak: {user?.current_streak || progress?.streak || 0} days</span>
+            <span style={{ color: 'var(--text-muted)' }}>Longest: {user?.longest_streak || user?.current_streak || 0} days</span>
+          </div>
+        </div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', margin: '0 0 12px 0' }}>
+          Complete lessons, submit circuits, or pass assessments to maintain your daily quantum energy streak.
+        </p>
+
+        <div className="streak-calendar-grid">
+          {calendarDays.map(day => (
+            <div
+              key={day.dayNum}
+              className={`streak-day-cell ${day.isActive ? 'active' : ''} ${day.isToday ? 'today' : ''}`}
+              title={`${day.dateKey}: ${day.interactions} verified action(s)`}
+            >
+              <span>{day.dayNum}</span>
+              {day.isActive ? (
+                <span className="streak-day-icon">🔥</span>
+              ) : day.isToday ? (
+                <span className="streak-day-icon" style={{ fontSize: '0.65rem' }}>🎯</span>
+              ) : null}
+            </div>
+          ))}
         </div>
       </div>
 

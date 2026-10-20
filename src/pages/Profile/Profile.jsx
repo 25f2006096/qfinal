@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useProgress } from '../../context/ProgressContext.jsx';
 import { MODULES, GOALS, EDUCATION_LEVELS } from '../../data/modules.js';
 import { getRankTitle, getProgressToNextLevel } from '../../utils/gamification.js';
 import { storage } from '../../utils/storage.js';
+import { COSMETIC_FRAMES, COSMETIC_TITLES, getEquippedCosmetics, saveEquippedCosmetics } from '../../utils/cosmetics.js';
 
 const COSMETIC_AVATARS = [
   { id: 'qubit', name: 'Qubit Initiate', url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Qubit' },
@@ -31,6 +32,15 @@ export default function Profile() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [activityDays, setActivityDays] = useState({});
+
+  // Cosmetics state
+  const [equippedCosmetics, setEquippedCosmetics] = useState(() => getEquippedCosmetics(user?.id));
+
+  useEffect(() => {
+    if (user?.id) {
+      setEquippedCosmetics(getEquippedCosmetics(user.id));
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (user) {
@@ -59,6 +69,52 @@ export default function Profile() {
   const completedModuleIds = progress?.completedModules || [];
   const completedCount = completedModuleIds.length;
   const verifiedAchievements = gamification?.achievements || [];
+
+  const activeFrame = COSMETIC_FRAMES.find(f => f.id === equippedCosmetics.frameId) || COSMETIC_FRAMES[0];
+  const activeTitle = COSMETIC_TITLES.find(t => t.id === equippedCosmetics.titleId)?.title || rank;
+
+  const handleEquipFrame = (frameId) => {
+    const updated = { ...equippedCosmetics, frameId };
+    setEquippedCosmetics(updated);
+    saveEquippedCosmetics(user?.id, updated);
+    setMessage('Cosmetic avatar frame equipped.');
+    setTimeout(() => setMessage(''), 2500);
+  };
+
+  const handleEquipTitle = (titleId) => {
+    const updated = { ...equippedCosmetics, titleId };
+    setEquippedCosmetics(updated);
+    saveEquippedCosmetics(user?.id, updated);
+    setMessage('Explorer title equipped.');
+    setTimeout(() => setMessage(''), 2500);
+  };
+
+  // Monthly streak calendar days calculation
+  const calendarDays = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayDate = now.getDate();
+
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dayNum = i + 1;
+      const monthStr = String(month + 1).padStart(2, '0');
+      const dayStr = String(dayNum).padStart(2, '0');
+      const dateKey = `${year}-${monthStr}-${dayStr}`;
+      const interactions = activityDays[dateKey] || 0;
+      const isActive = interactions > 0;
+      const isToday = dayNum === todayDate;
+
+      return {
+        dayNum,
+        dateKey,
+        isActive,
+        isToday,
+        interactions,
+      };
+    });
+  }, [activityDays]);
 
   const handleAvatarSelect = (url) => {
     setSelectedAvatar(url);
@@ -124,9 +180,9 @@ export default function Profile() {
       {/* Header Profile Summary */}
       <div className="card" style={{ marginBottom: 24, padding: 24, display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center', justifyContent: 'space-between', borderLeft: '5px solid var(--accent)' }}>
         <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-          <div style={{ width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--accent)', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className={`avatar-frame ${activeFrame.className}`} style={{ width: 84, height: 84, borderRadius: '50%', background: 'var(--bg-glass)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {selectedAvatar ? (
-              <img src={selectedAvatar} alt={user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+              <img src={selectedAvatar} alt={user?.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
             ) : (
               <span style={{ fontSize: '1.8rem', fontWeight: 700 }}>{getInitials(name)}</span>
             )}
@@ -138,9 +194,14 @@ export default function Profile() {
                 {user?.isAdmin ? '⚙️ Admin' : user?.isInstructor ? '🎓 Instructor' : '🎓 Student'}
               </span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0', fontSize: '0.9rem' }}>
-              {user?.email} · Joined {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently'}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <span className="tag tag-accent" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                ⚜️ {activeTitle}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                {user?.email} · Joined {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Recently'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -265,6 +326,66 @@ export default function Profile() {
             ))}
           </div>
 
+          <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: 14, marginBottom: 14 }}>
+            <label className="form-label" style={{ fontWeight: 700 }}>Equipped Avatar Frame</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10, marginTop: 8 }}>
+              {COSMETIC_FRAMES.map((f) => {
+                const unlocked = f.isUnlocked(totalXP, level, gamification?.missions);
+                const isEquipped = equippedCosmetics.frameId === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={!unlocked}
+                    onClick={() => unlocked && handleEquipFrame(f.id)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: isEquipped ? 'rgba(37, 99, 235, 0.1)' : 'var(--bg-glass)',
+                      border: isEquipped ? '2px solid var(--accent)' : '1px solid var(--border-glass)',
+                      cursor: unlocked ? 'pointer' : 'not-allowed',
+                      opacity: unlocked ? 1 : 0.5,
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div className={`avatar-frame ${f.className}`} style={{ width: 28, height: 28, margin: '0 auto 4px' }} />
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700 }}>{f.name}</div>
+                    <div style={{ fontSize: '0.65rem', color: isEquipped ? 'var(--accent)' : 'var(--text-muted)' }}>
+                      {isEquipped ? '✓ Equipped' : unlocked ? 'Equip' : f.req}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: 14, marginBottom: 14 }}>
+            <label className="form-label" style={{ fontWeight: 700 }}>Equipped Explorer Title</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {COSMETIC_TITLES.map((t) => {
+                const unlocked = t.isUnlocked(totalXP, level, gamification?.missions);
+                const isEquipped = equippedCosmetics.titleId === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={!unlocked}
+                    onClick={() => unlocked && handleEquipTitle(t.id)}
+                    className={`tag ${isEquipped ? 'tag-accent' : unlocked ? 'tag-info' : ''}`}
+                    style={{
+                      cursor: unlocked ? 'pointer' : 'not-allowed',
+                      opacity: unlocked ? 1 : 0.45,
+                      border: isEquipped ? '2px solid var(--accent)' : '1px solid var(--border-glass)',
+                    }}
+                    title={unlocked ? 'Click to equip title' : `Locked: ${t.req}`}
+                  >
+                    {isEquipped && '✓ '} {t.title}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div style={{ borderTop: '1px solid var(--border-glass)', paddingTop: 14 }}>
             <label className="form-label">Upload Custom Image (PNG, JPG, WebP &lt; 2MB)</label>
             <input
@@ -302,20 +423,34 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Activity Heatmap Preview */}
-        <div>
-          <h3 style={{ fontSize: '0.95rem', marginBottom: 8 }}>📅 Recent Learning Activity Days</h3>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            {Object.keys(activityDays).length > 0 ? (
-              Object.entries(activityDays).slice(-14).map(([date, count]) => (
-                <div key={date} style={{ padding: '6px 10px', background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 6, fontSize: '0.75rem', textAlign: 'center' }}>
-                  <div style={{ color: 'var(--text-muted)' }}>{date}</div>
-                  <div style={{ fontWeight: 700, color: 'var(--accent)' }}>{count} action{count > 1 ? 's' : ''}</div>
-                </div>
-              ))
-            ) : (
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Activity is recorded when you complete lessons, circuits, and assessments.</span>
-            )}
+        {/* Interactive Streak Calendar Grid */}
+        <div className="streak-calendar-card" style={{ marginTop: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <h3 style={{ fontSize: '0.95rem', margin: 0 }}>🔥 Monthly Learning Streak Calendar</h3>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.75rem' }}>
+              <span style={{ color: '#b45309', fontWeight: 700 }}>Current: {user?.current_streak || 0}d</span>
+              <span style={{ color: 'var(--text-muted)' }}>Longest: {user?.longest_streak || user?.current_streak || 0}d</span>
+            </div>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', margin: '0 0 10px 0' }}>
+            Complete lessons, submit circuits, or pass quizzes to maintain your daily quantum energy streak.
+          </p>
+
+          <div className="streak-calendar-grid">
+            {calendarDays.map(day => (
+              <div
+                key={day.dayNum}
+                className={`streak-day-cell ${day.isActive ? 'active' : ''} ${day.isToday ? 'today' : ''}`}
+                title={`${day.dateKey}: ${day.interactions} verified action(s)`}
+              >
+                <span>{day.dayNum}</span>
+                {day.isActive ? (
+                  <span className="streak-day-icon">🔥</span>
+                ) : day.isToday ? (
+                  <span className="streak-day-icon" style={{ fontSize: '0.65rem' }}>🎯</span>
+                ) : null}
+              </div>
+            ))}
           </div>
         </div>
       </div>

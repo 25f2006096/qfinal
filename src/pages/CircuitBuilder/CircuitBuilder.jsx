@@ -390,9 +390,67 @@ export default function CircuitBuilder({ embedded = false, initialQubits = 2, ga
   return (
     <div className={embedded ? '' : 'page fade-in'}>
       {!embedded && (
-        <div className="page-header">
-          <h1 className="page-title">⚡ Quantum Circuit Builder</h1>
-          <p className="page-subtitle">Drag gates onto qubit wires, see live state probabilities, and visualize on the Bloch sphere</p>
+        <div className="page-header" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h1 className="page-title">⚡ Circuit Forge & Puzzle Vault</h1>
+              <p className="page-subtitle">Construct quantum circuits, solve repair puzzles, challenge quantum bosses, and simulate in real time.</p>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button
+                className={`tag ${!queryMissionId && !repairId && !bossId ? 'tag-accent' : 'tag-info'}`}
+                style={{ cursor: 'pointer', border: 'none', padding: '6px 12px' }}
+                onClick={() => window.location.assign('/circuit')}
+              >
+                ⚡ Freeform Forge
+              </button>
+              <button
+                className={`tag ${repairId ? 'tag-accent' : 'tag-info'}`}
+                style={{ cursor: 'pointer', border: 'none', padding: '6px 12px' }}
+                onClick={() => window.location.assign('/circuit?mission=build-superposition&repair=superposition-reset')}
+              >
+                🧩 Puzzle Vault
+              </button>
+              <button
+                className={`tag ${bossId ? 'tag-accent' : 'tag-info'}`}
+                style={{ cursor: 'pointer', border: 'none', padding: '6px 12px' }}
+                onClick={() => window.location.assign('/circuit?mission=build-bell-state&boss=entanglement-guardian')}
+              >
+                👑 Boss Arena
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Challenge Navigation Bar when in Puzzle or Boss mode */}
+      {!embedded && (repairId || bossId) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, background: 'var(--bg-glass)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-glass)', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+            {repairId ? '🧩 Repair Missions:' : '👑 Boss Arena:'}
+          </span>
+          {repairId ? (
+            <>
+              <button className={`tag ${repairId === 'superposition-reset' ? 'tag-accent' : 'tag-info'}`} style={{ cursor: 'pointer', border: 'none' }} onClick={() => window.location.assign('/circuit?mission=build-superposition&repair=superposition-reset')}>
+                Superposition Reset
+              </button>
+              <button className={`tag ${repairId === 'broken-bell-pair' ? 'tag-accent' : 'tag-info'}`} style={{ cursor: 'pointer', border: 'none' }} onClick={() => window.location.assign('/circuit?mission=build-bell-state&repair=broken-bell-pair')}>
+                Broken Bell Pair
+              </button>
+              <button className={`tag ${repairId === 'ghz-repair' ? 'tag-accent' : 'tag-info'}`} style={{ cursor: 'pointer', border: 'none' }} onClick={() => window.location.assign('/circuit?mission=build-ghz-state&repair=ghz-repair')}>
+                GHZ Completion
+              </button>
+            </>
+          ) : (
+            <>
+              <button className={`tag ${bossId === 'entanglement-guardian' ? 'tag-accent' : 'tag-info'}`} style={{ cursor: 'pointer', border: 'none' }} onClick={() => window.location.assign('/circuit?mission=build-bell-state&boss=entanglement-guardian')}>
+                Entanglement Guardian (2-Qubit)
+              </button>
+              <button className={`tag ${bossId === 'ghz-overlord' ? 'tag-accent' : 'tag-info'}`} style={{ cursor: 'pointer', border: 'none' }} onClick={() => window.location.assign('/circuit?mission=build-ghz-state&boss=ghz-overlord')}>
+                Tri-Qubit Overlord (3-Qubit)
+              </button>
+            </>
+          )}
         </div>
       )}
 
