@@ -17,6 +17,7 @@ const NAV = [
   { to: '/contests', icon: '🏁', label: 'Competition Arena' },
   { to: '/skillmap', icon: '📊', label: 'Skill Observatory' },
   { to: '/achievements', icon: '🏆', label: 'Artifacts & Badges' },
+  { to: '/mentor', icon: '🧠', label: 'Mentor Console' },
   { to: '/race', icon: '⚔', label: 'Quantum Race' },
   { to: '/notifications', icon: '🔔', label: 'Comms & Alerts' },
   { to: '/profile', icon: '👤', label: 'Explorer Profile' },
@@ -24,7 +25,7 @@ const NAV = [
 
 export default function Sidebar() {
   const { user, logout, updateUser } = useAuth();
-  const { getOverallKnowledge } = useProgress();
+  const { getOverallKnowledge, gamification } = useProgress();
   const navigate = useNavigate();
   const knowledge = getOverallKnowledge();
   const instructorNav = [
@@ -96,12 +97,12 @@ export default function Sidebar() {
           <div className="sidebar-user-badges">
             <div className="sidebar-badge xp-badge" title="Total XP">
               <span className="badge-icon">⚡</span>
-              <span className="badge-value">{user.total_xp || 0}</span>
+              <span className="badge-value">{gamification?.total_xp ?? user.total_xp ?? 0}</span>
               <span className="badge-label">XP</span>
             </div>
             <div className="sidebar-badge streak-badge" title="Current Streak">
               <span className="badge-icon">🔥</span>
-              <span className="badge-value">{user.current_streak || 0}</span>
+              <span className="badge-value">{gamification?.current_streak ?? user.current_streak ?? 0}</span>
               <span className="badge-label">Days</span>
             </div>
           </div>

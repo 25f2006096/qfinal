@@ -1,5 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
+from app.config import settings
 from app.schemas import ContestSubmissionRequest
 from app.security import require_configured_auth
 from app.services.contest_service import contest_status, queue_hardware_fidelity, score_submission, store
@@ -62,7 +63,8 @@ async def submit(contest_id: str, problem_id: str, request: ContestSubmissionReq
     leaderboard = await store.leaderboard(contest_id)
     rank = next((index + 1 for index, row in enumerate(leaderboard) if row["user_id"] == submission["user_id"]), None)
     qualifies_for_hardware = submission["is_best_for_user"] and submission["correctness_score"] >= problem["pass_threshold"]
-    if qualifies_for_hardware:
+    hardware_available = bool(settings.ibm_quantum_api_key and settings.ibm_quantum_instance)
+    if qualifies_for_hardware and hardware_available:
         background_tasks.add_task(queue_hardware_fidelity, submission, problem)
     reward = None
     # Scoring is server-side, so only a qualifying best solution can reach the
@@ -73,7 +75,8 @@ async def submit(contest_id: str, problem_id: str, request: ContestSubmissionReq
             reward = await gamification_store.award(user["id"], "contest_solution", f"contest:{contest_id}:problem:{problem_id}")
         except RuntimeError:
             reward = None
-    return {"success": True, "submission": submission, "rank": rank, "fidelity_status": "queued" if qualifies_for_hardware else "not_queued", "reward": reward}
+    fidelity_status = "queued" if qualifies_for_hardware and hardware_available else "not_requested" if qualifies_for_hardware else "not_queued"
+    return {"success": True, "submission": submission, "rank": rank, "fidelity_status": fidelity_status, "reward": reward}
 
 
 @router.post("/{contest_id}/finalize")

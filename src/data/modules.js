@@ -51,7 +51,6 @@ export const SKILL_LABELS = {
 export const ACHIEVEMENTS = [
   { id: 'qubit_explorer', name: 'Qubit Explorer', icon: '⚛️', desc: 'Complete Module 2', condition: (p) => p.completedModules?.includes(2) },
   { id: 'gate_master', name: 'Gate Master', icon: '🚪', desc: 'Complete Module 3 & 4', condition: (p) => p.completedModules?.includes(3) && p.completedModules?.includes(4) },
-  { id: 'circuit_builder', name: 'Circuit Builder', icon: '🔧', desc: 'Complete 5 circuit challenges', condition: (p) => (p.circuitsChallengesCompleted || 0) >= 5 },
   { id: 'bell_builder', name: 'Bell State Builder', icon: '🔔', desc: 'Build a Bell state in Circuit Builder', condition: (p) => p.completedTopics?.includes('4-14') },
   { id: 'programmer', name: 'Quantum Programmer', icon: '💻', desc: 'Complete Module 7', condition: (p) => p.completedModules?.includes(7) },
   { id: 'algo_explorer', name: 'Algorithm Explorer', icon: '🧮', desc: 'Complete Module 9', condition: (p) => p.completedModules?.includes(9) },
@@ -60,5 +59,4 @@ export const ACHIEVEMENTS = [
   { id: 'researcher', name: 'Quantum Researcher', icon: '📚', desc: 'Complete Module 22', condition: (p) => p.completedModules?.includes(22) },
   { id: 'error_expert', name: 'Error Correction Expert', icon: '🛡️', desc: 'Complete Module 13', condition: (p) => p.completedModules?.includes(13) },
   { id: 'architect', name: 'Quantum Architect', icon: '🏛️', desc: 'Complete all 24 modules', condition: (p) => p.completedModules?.length >= 24 },
-  { id: 'streak_7', name: 'Week Warrior', icon: '🔥', desc: '7-day learning streak', condition: (p) => (p.streak || 0) >= 7 },
 ];

@@ -11,6 +11,7 @@ import AchievementNotification from '../../components/gamification/AchievementNo
 import { getWorldMap } from '../../utils/worldMap.js';
 import { storage } from '../../utils/storage.js';
 import { COSMETIC_FRAMES, COSMETIC_TITLES, getEquippedCosmetics } from '../../utils/cosmetics.js';
+import { getAvailableCommandZones } from '../../utils/commandZones.js';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ export default function Dashboard() {
   const equipped = getEquippedCosmetics(user?.id);
   const activeFrame = COSMETIC_FRAMES.find(f => f.id === equipped.frameId) || COSMETIC_FRAMES[0];
   const activeTitle = COSMETIC_TITLES.find(t => t.id === equipped.titleId)?.title || gamification?.level?.name || 'Quantum Initiate';
+  const commandZones = getAvailableCommandZones(user?.isAdmin);
 
   useEffect(() => {
     let active = true;
@@ -116,7 +118,7 @@ export default function Dashboard() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Streak</div>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>🔥 {progress?.streak || 0}</div>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>🔥 {gamification?.current_streak ?? user?.current_streak ?? 0}</div>
           </div>
         </div>
       </div>
@@ -161,6 +163,22 @@ export default function Dashboard() {
           <div className="progress-fill success" style={{ width: `${levelProgress.percentage}%` }} />
         </div>
       </div>
+
+      <section aria-labelledby="command-hub-heading" style={{ marginBottom: 28 }}>
+        <div style={{ marginBottom: 12 }}>
+          <h2 id="command-hub-heading" style={{ fontSize: '1.1rem', margin: 0 }}>🧭 Learning Command Hub</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '.84rem', marginTop: 5 }}>Pick a zone to study, practice, or review verified progress.</p>
+        </div>
+        <div className="command-zone-grid">
+          {commandZones.map(zone => (
+            <button key={zone.id} className="card command-zone-card" type="button" onClick={() => nav(zone.route)}>
+              <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>{zone.icon}</span>
+              <span style={{ fontWeight: 750 }}>{zone.name}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '.8rem', lineHeight: 1.4 }}>{zone.description}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <div className="grid grid-2" style={{ marginBottom: 28 }}>
         {/* Continue Learning */}
@@ -341,8 +359,8 @@ export default function Dashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <h2 style={{ fontSize: '1rem', margin: 0 }}>🔥 Monthly Learning Streak Calendar</h2>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: '0.8rem' }}>
-            <span style={{ color: '#b45309', fontWeight: 700 }}>Current Streak: {user?.current_streak || progress?.streak || 0} days</span>
-            <span style={{ color: 'var(--text-muted)' }}>Longest: {user?.longest_streak || user?.current_streak || 0} days</span>
+            <span style={{ color: '#b45309', fontWeight: 700 }}>Current Streak: {gamification?.current_streak ?? user?.current_streak ?? 0} days</span>
+            <span style={{ color: 'var(--text-muted)' }}>Longest: {gamification?.longest_streak ?? user?.longest_streak ?? 0} days</span>
           </div>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', margin: '0 0 12px 0' }}>

@@ -6,8 +6,43 @@ from pydantic import BaseModel, Field
 
 from app.security import require_configured_auth
 from app.services.gamification_service import store
+from app.services.repair_service import daily_challenge, evaluate_attempt, public_challenge
+from app.schemas import RepairAttemptSubmission
 
 router = APIRouter(prefix="/api/challenges", tags=["Challenges"])
+game_router = APIRouter(prefix="/api/game", tags=["Challenges"])
+
+
+@router.get("/repair/daily")
+async def get_daily_repair_challenge(user=Depends(require_configured_auth)):
+    if not user:
+        raise HTTPException(401, "Authentication is required for repair challenges.")
+    return {"success": True, **daily_challenge()}
+
+
+@router.get("/repair/{challenge_id}")
+async def get_repair_challenge(challenge_id: str, user=Depends(require_configured_auth)):
+    if not user:
+        raise HTTPException(401, "Authentication is required for repair challenges.")
+    try:
+        return {"success": True, "challenge": public_challenge(challenge_id)}
+    except KeyError as error:
+        raise HTTPException(404, "Repair challenge not found.") from error
+
+
+@game_router.post("/repair/{challenge_id}/attempt")
+@router.post("/repair/{challenge_id}/attempt")
+async def attempt_repair_challenge(challenge_id: str, payload: RepairAttemptSubmission, user=Depends(require_configured_auth)):
+    if not user:
+        raise HTTPException(401, "Authentication is required for repair attempts.")
+    try:
+        result = evaluate_attempt(challenge_id, payload.operations)
+        reward = await store.record_repair_attempt(user["id"], challenge_id, payload.operations, result, payload.hints_used)
+        return {"success": True, "result": result, "reward": reward}
+    except KeyError as error:
+        raise HTTPException(404, "Repair challenge not found.") from error
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
 
 
 class ChallengeProgressRequest(BaseModel):

@@ -1333,4 +1333,49 @@ h3 { font-size: 1.25rem; }
   }
 }
 
+/* Motion is decorative, never required to understand progress or complete a
+   learning task. Respect users who request reduced motion across the game HUD,
+   map, notifications, and existing component transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
+
+.command-zone-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.command-zone-card {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.command-zone-card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .command-zone-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .command-zone-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

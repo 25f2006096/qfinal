@@ -45,6 +45,16 @@ async def summary(user=Depends(require_configured_auth)):
         raise HTTPException(503, str(error)) from error
 
 
+@router.get("/missions")
+async def mission_catalog(user=Depends(require_configured_auth)):
+    if not user:
+        raise HTTPException(401, "Authentication is required to view missions.")
+    try:
+        return {"success": True, "sectors": await store.mission_catalog(user["id"])}
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
+
+
 @router.get("/leaderboard/weekly")
 async def weekly_leaderboard(user=Depends(require_configured_auth)):
     if not user:

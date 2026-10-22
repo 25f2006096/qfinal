@@ -25,6 +25,8 @@ const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications/Notifications.jsx'));
 const ResearchNotebook = lazy(() => import('./pages/Notebook/ResearchNotebook.jsx'));
 const EventCalendar = lazy(() => import('./pages/Events/EventCalendar.jsx'));
+const RepairCircuit = lazy(() => import('./pages/RepairCircuit/RepairCircuit.jsx'));
+const MentorConsole = lazy(() => import('./pages/Mentor/MentorConsole.jsx'));
 
 function ProtectedRoute({ children, requireAdmin = false }) {
   const { user, loading } = useAuth();
@@ -126,6 +128,8 @@ function MainLayout() {
           <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/notebook" element={<ProtectedRoute><ResearchNotebook /></ProtectedRoute>} />
           <Route path="/events" element={<ProtectedRoute><EventCalendar /></ProtectedRoute>} />
+          <Route path="/repair" element={<ProtectedRoute><RepairCircuit /></ProtectedRoute>} />
+          <Route path="/mentor" element={<ProtectedRoute><MentorConsole /></ProtectedRoute>} />
           <Route path="/race" element={<ProtectedRoute><QuantumRace /></ProtectedRoute>} />
           <Route path="/contests" element={<ProtectedRoute><Contests /></ProtectedRoute>} />
           <Route path="/contests/:contestId" element={<ProtectedRoute><Contests /></ProtectedRoute>} />
