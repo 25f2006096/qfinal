@@ -47,7 +47,8 @@ def test_circuit_submission_uses_existing_qiskit_compiler_and_scores_bell_pair(m
     # is expected to be near-perfect rather than bit-for-bit deterministic.
     assert submission["correctness_score"] >= .95
     assert submission["efficiency_score"] == pytest.approx(1)
-    assert submission["total_score"] == pytest.approx(1.0)
+    expected_score = (.5 * submission["correctness_score"] + .25 * submission["efficiency_score"]) / .75
+    assert submission["total_score"] == pytest.approx(expected_score)
 
 
 def test_contest_leaderboard_scopes_submissions_and_resolves_participant_names(monkeypatch):
