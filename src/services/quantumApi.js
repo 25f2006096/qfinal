@@ -83,6 +83,7 @@ export const getContestLeaderboard = (contestId) => request(`/api/contests/${enc
 export const getMyContestRating = () => request('/api/contests/me/rating');
 
 export const getGamificationSummary = () => request('/api/gamification/summary');
+export const getCampaignMissions = () => request('/api/gamification/missions');
 export const getWeeklyLeaderboard = () => request('/api/gamification/leaderboard/weekly');
 export const submitCircuitMission = (missionId, payload) => request(
   `/api/gamification/circuit-missions/${encodeURIComponent(missionId)}/submit`,
@@ -99,6 +100,9 @@ export const saveChallengeProgress = (challengeId, payload) => request(`/api/cha
   method: 'PUT',
   body: JSON.stringify({ challenge_id: challengeId, ...payload }),
 });
+export const getRepairChallenge = (challengeId) => request(`/api/challenges/repair/${encodeURIComponent(challengeId)}`);
+export const getDailyRepairChallenge = () => request('/api/challenges/repair/daily');
+export const submitRepairAttempt = (challengeId, payload) => request(`/api/challenges/repair/${encodeURIComponent(challengeId)}/attempt`, { method: 'POST', body: JSON.stringify(payload) });
 
 export const adminApi = {
   dashboard: () => request('/api/admin/dashboard'),

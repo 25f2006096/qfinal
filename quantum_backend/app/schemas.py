@@ -36,6 +36,11 @@ class CircuitMissionSubmission(BaseModel):
     operations: list[dict[str, Any]] = Field(min_length=1, max_length=40)
 
 
+class RepairAttemptSubmission(BaseModel):
+    operations: list[dict[str, Any]] = Field(min_length=1, max_length=40)
+    hints_used: int = Field(default=0, ge=0, le=4)
+
+
 class AlgorithmRequest(BaseModel):
     algorithm: Algorithm
     framework: Framework = "qiskit"

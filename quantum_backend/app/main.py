@@ -47,6 +47,7 @@ app.include_router(admin.router)
 app.include_router(gamification.router)
 app.include_router(notifications.router)
 app.include_router(challenges.router)
+app.include_router(challenges.game_router)
 
 
 @app.get("/api/content/topics")

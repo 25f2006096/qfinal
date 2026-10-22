@@ -135,14 +135,44 @@ class ContestStore:
 
     async def leaderboard(self, contest_id: str):
         problems = await self.problems(contest_id, private=True)
-        ids = {item["id"] for item in problems}
-        rows = await self._request("GET", "contest_submissions?select=*")
+        ids = sorted({item["id"] for item in problems})
+        if not ids:
+            return []
+        problem_filter = ",".join(ids)
+        rows = []
+        offset = 0
+        page_size = 500
+        while True:
+            page = await self._request(
+                "GET",
+                "contest_submissions"
+                f"?problem_id=in.({problem_filter})"
+                "&select=user_id,problem_id,total_score,correctness_score,is_best_for_user"
+                f"&order=problem_id&limit={page_size}&offset={offset}",
+            )
+            rows.extend(page or [])
+            if not page or len(page) < page_size:
+                break
+            offset += page_size
         totals: dict[str, dict[str, Any]] = {}
         for row in rows:
             if row["problem_id"] not in ids or not row.get("is_best_for_user"): continue
             entry = totals.setdefault(row["user_id"], {"user_id": row["user_id"], "display_name": "You" if row["user_id"] == "local-user" else "Participant", "total_score_sum": 0, "problems_solved": 0})
             entry["total_score_sum"] += float(row.get("total_score") or 0)
             entry["problems_solved"] += int(float(row.get("correctness_score") or 0) >= .95)
+        user_ids = sorted(user_id for user_id in totals if user_id != "local-user")
+        if user_ids:
+            profile_filter = ",".join(user_ids)
+            profiles = await self._request(
+                "GET",
+                f"profiles?id=in.({profile_filter})&select=id,full_name",
+            )
+            names = {
+                profile["id"]: str(profile.get("full_name") or "").strip()
+                for profile in profiles or []
+            }
+            for user_id in user_ids:
+                totals[user_id]["display_name"] = names.get(user_id) or "Quantum learner"
         return sorted(totals.values(), key=lambda item: (-item["total_score_sum"], -item["problems_solved"]))
 
     async def rating(self, user_id: str):
@@ -207,7 +237,12 @@ async def score_submission(problem: dict[str, Any], user_id: str, request) -> di
     depth_efficiency = min(1.0, par_depth / max(depth, par_depth))
     efficiency = (gate_efficiency + depth_efficiency) / 2
     passed = correctness >= float(problem.get("pass_threshold") or .95)
-    total = .5 * correctness + .25 * efficiency if passed else 0.0
+    hardware_available = bool(settings.ibm_quantum_api_key and settings.ibm_quantum_instance)
+    total = (
+        .5 * correctness + .25 * efficiency
+        if hardware_available
+        else (.5 * correctness + .25 * efficiency) / .75
+    ) if passed else 0.0
     previous = await store.submissions(problem["id"], user_id)
     previous_best = max((float(item.get("total_score") or 0) for item in previous), default=-1)
     submission = {

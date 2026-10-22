@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════
-//  AI Quantum Tutor — Client integration with Supabase Edge Function, Direct API Key & offline fallback
+//  AI Quantum Tutor — authenticated Supabase Edge Function with offline fallback
 // ═══════════════════════════════════════════════════════════════════
 
 import { supabase } from '../lib/supabaseClient.js';
@@ -167,10 +167,10 @@ function getFallbackResponse(message, currentModule, currentTopic) {
 }
 
 /**
- * Send a chat message via Supabase Edge Function (using Supabase secrets), Direct API Key, or offline fallback
+ * Send chat through the authenticated Edge Function, or use the local fallback.
  */
 export async function getGroqResponse(userMessage, chatHistory = [], currentModule = null, currentTopic = null) {
-  // 1. Try Supabase Edge Function (uses GROQ_API_KEY secret configured in Supabase Dashboard)
+  // Live AI requests must go through the authenticated, quota-enforcing Edge Function.
   if (supabase) {
     try {
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
@@ -183,43 +183,19 @@ export async function getGroqResponse(userMessage, chatHistory = [], currentModu
         }
       });
 
+      if (error?.context?.status === 429) {
+        return 'Tutor request limit reached. Please try again later.';
+      }
       if (!error && data && data.text) {
         const cleaned = cleanResponseContent(data.text);
         if (cleaned) return cleaned;
       }
     } catch (err) {
-      console.warn('Supabase Edge Function invocation failed, falling back to direct API key:', err);
+      console.warn('Supabase Edge Function invocation failed; using the local tutor fallback:', err);
     }
   }
 
-  // 2. Try Direct Groq API Key if configured in client (.env or UI modal)
-  const apiKey = getActiveApiKey();
-  if (apiKey) {
-    try {
-      const formattedHistory = chatHistory
-        .filter(m => m && m.text && m.text.trim())
-        .slice(-6)
-        .map(m => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.text.trim()
-        }));
-
-      const systemPrompt = `You are QuantumLearn AI, an expert, encouraging, interactive quantum computing tutor. Topic context: ${currentTopic || 'Quantum Computing'}. Use Dirac notation like |0⟩, |1⟩, |+⟩ where appropriate. Format answers cleanly in Markdown with concise code blocks if requested. Give progressive hints before a full answer. Never claim a mission is complete, award XP, or invent simulator results; those are determined only by the application after trusted validation.`;
-      
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        ...formattedHistory,
-        { role: 'user', content: userMessage.trim() }
-      ];
-
-      const directText = await callDirectGroqApi(apiKey, messages);
-      if (directText) return directText;
-    } catch (err) {
-      console.warn('Direct Groq API Key call failed:', err.message);
-    }
-  }
-
-  // 3. Smart offline fallback response
+  // The fallback is local and cannot bypass server-side authentication or quotas.
   return getFallbackResponse(userMessage, currentModule, currentTopic);
 }
 
@@ -234,7 +210,7 @@ export function getAIResponse(message, currentModule = null, currentTopic = null
 export async function explainCircuitWithGroq(ops, nQubits) {
   if (!ops || ops.length === 0) return null;
 
-  // 1. Try Supabase Edge Function (uses GROQ_API_KEY secret configured in Supabase)
+  // Circuit explanations use the same authenticated Edge Function.
   if (supabase) {
     try {
       const { data, error } = await supabase.functions.invoke('ai-tutor', {
@@ -250,28 +226,10 @@ export async function explainCircuitWithGroq(ops, nQubits) {
         if (cleaned) return cleaned;
       }
     } catch (err) {
-      console.warn('Circuit explanation Edge Function failed, trying direct API key:', err);
+      console.warn('Circuit explanation Edge Function failed; using the local explanation:', err);
     }
   }
 
-  // 2. Try Direct Groq API Key
-  const apiKey = getActiveApiKey();
-  if (apiKey) {
-    try {
-      const offlineSummary = generateOfflineCircuitExplanation(ops, nQubits);
-      const systemPrompt = `You are QuantumLearn AI. Explain the given quantum circuit in depth with clear section headers (### Executive Summary, ### Quantum Transformations, ### Applications). Include exact state evolution in Dirac notation.`;
-      const userPrompt = `Circuit: ${nQubits} qubits. Gate sequence: ${JSON.stringify(ops)}.\nBase Analysis:\n${offlineSummary}`;
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ];
-      const directText = await callDirectGroqApi(apiKey, messages);
-      if (directText) return directText;
-    } catch (err) {
-      console.warn('Direct API Key explanation call failed:', err.message);
-    }
-  }
-
-  // 3. Fallback to rich offline explanation generator
+  // Offline explanations use the local circuit simulator only.
   return generateOfflineCircuitExplanation(ops, nQubits);
 }

@@ -21,7 +21,7 @@ export default function GameHUD() {
   const dailyQuests = gamification?.daily_quests || [];
   const completedDailyCount = dailyQuests.filter(q => q.completed).length;
   const totalDailyCount = dailyQuests.length || 1;
-  const streak = user?.current_streak ?? progress?.streak ?? 0;
+  const streak = gamification?.current_streak ?? user?.current_streak ?? progress?.streak ?? 0;
 
   const equipped = getEquippedCosmetics(user?.id);
   const activeFrame = COSMETIC_FRAMES.find(f => f.id === equipped.frameId) || COSMETIC_FRAMES[0];

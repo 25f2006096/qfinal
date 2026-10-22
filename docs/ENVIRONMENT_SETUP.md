@@ -38,6 +38,8 @@ The deployed Docker image uses Python 3.12. Local tests were successfully run in
 4. Verify RLS remains enabled and browser roles cannot read or write reward tables.
 5. Ensure Storage bucket `avatars` is configured with owner-only policies before enabling custom avatar uploads.
 6. Configure `GROQ_API_KEY` in Supabase Edge Function secrets for `ai-tutor` if live AI mentor responses are required.
+7. Configure `AI_TUTOR_ALLOWED_ORIGINS` as a comma-separated allowlist of exact application origins (scheme and host, no path). The function also requires Supabase's `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` secrets to authenticate users and consume quota. Never expose the service-role key to the browser.
+8. Review migrations 19-22 and apply only to an approved non-production project after schema checks. Do not apply them to production or repair production migration history without explicit owner authorization.
 
 ## Test accounts
 

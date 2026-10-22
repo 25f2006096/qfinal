@@ -218,7 +218,7 @@ export default function Profile() {
           </div>
           <div style={{ textAlign: 'center', padding: '8px 16px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current Streak</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>🔥 {user?.current_streak || 0}</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>🔥 {gamification?.current_streak ?? user?.current_streak ?? 0}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Days</div>
           </div>
         </div>
@@ -428,8 +428,8 @@ export default function Profile() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <h3 style={{ fontSize: '0.95rem', margin: 0 }}>🔥 Monthly Learning Streak Calendar</h3>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: '0.75rem' }}>
-              <span style={{ color: '#b45309', fontWeight: 700 }}>Current: {user?.current_streak || 0}d</span>
-              <span style={{ color: 'var(--text-muted)' }}>Longest: {user?.longest_streak || user?.current_streak || 0}d</span>
+              <span style={{ color: '#b45309', fontWeight: 700 }}>Current: {gamification?.current_streak ?? user?.current_streak ?? 0}d</span>
+              <span style={{ color: 'var(--text-muted)' }}>Longest: {gamification?.longest_streak ?? user?.longest_streak ?? 0}d</span>
             </div>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', margin: '0 0 10px 0' }}>
